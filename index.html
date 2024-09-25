@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>WarpTalk Chat Interface</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+	<div class="container">
+		<div id="sidebar">
+			<h3>Rooms</h3>
+			<div id="room-list">
+				<div class="room-item"><strong>General</strong>: General about the course</div>
+				<div class="room-item"><strong>Random</strong>: About anything and everything</div>
+				<div class="room-item"><strong>Programming</strong>: Anything related to programming</div>
+				<div class="room-item"><strong>Help</strong>: If you don't ask, you won't get an answer</div>
+				<div class="room-item"><strong>News</strong>: Just the news from a bot</div>
+				<div class="room-item"><strong>Lectures</strong>: Ask questions during the lecture</div>
+			</div>
+			<button id="leave-button" style="display:none;">Leave Room</button>
+		</div>
+
+		<div id="chat-area">
+			<div id="login-section">
+				<input type="text" id="nickname" placeholder="Enter nickname for anonymous connection" />
+				<button id="login-button">Connect Anonymously</button>
+			</div>
+
+			<div id="message-list"></div>
+
+			<div id="input-section">
+				<input type="text" id="message-input" placeholder="Type a message" />
+				<button id="send-button">Send</button>
+			</div>
+		</div>
+
+		<div id="user-sidebar">
+			<h3>Online Users</h3>
+			<ul id="clients"></ul>
+		</div>
+	</div>
+
+	<script src="https://warp.cs.au.dk/libs/warptalk.js"></script>
+	<script src="script.js"></script>
+</body>
+
+</html>
