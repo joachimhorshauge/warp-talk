@@ -117,6 +117,7 @@ body {
 
 #send-button,
 #login-button,
+#logout-button,
 #leave-button {
   padding: 10px;
   margin-left: 5px;
@@ -135,6 +136,11 @@ body {
 
 #login-button {
   background-color: #ffc107;
+  color: black;
+}
+
+#logout-button {
+  background-color: #fe7e0d;
   color: black;
 }
 

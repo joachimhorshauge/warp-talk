@@ -13,12 +13,7 @@
 		<div id="sidebar">
 			<h3>Rooms</h3>
 			<div id="room-list">
-				<div class="room-item"><strong>General</strong>: General about the course</div>
-				<div class="room-item"><strong>Random</strong>: About anything and everything</div>
-				<div class="room-item"><strong>Programming</strong>: Anything related to programming</div>
-				<div class="room-item"><strong>Help</strong>: If you don't ask, you won't get an answer</div>
-				<div class="room-item"><strong>News</strong>: Just the news from a bot</div>
-				<div class="room-item"><strong>Lectures</strong>: Ask questions during the lecture</div>
+
 			</div>
 			<button id="leave-button" style="display:none;">Leave Room</button>
 		</div>
@@ -26,14 +21,16 @@
 		<div id="chat-area">
 			<div id="login-section">
 				<input type="text" id="nickname" placeholder="Enter nickname for anonymous connection" />
-				<button id="login-button">Connect Anonymously</button>
+				<input type="password" id="password" />
+				<button id="login-button">Log in / Connect</button>
+				<button id="logout-button">Log out</button>
 			</div>
 
 			<div id="message-list"></div>
 
 			<div id="input-section">
-				<input type="text" id="message-input" placeholder="Type a message" />
-				<button id="send-button">Send</button>
+				<input type="text" id="message-input" placeholder="Type a message" disabled />
+				<button id="send-button" disabled>Send</button>
 			</div>
 		</div>
 
