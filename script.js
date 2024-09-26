@@ -1,145 +1,231 @@
 document.addEventListener("DOMContentLoaded", () => {
-  let wt = new WarpTalk("wss", "warp.cs.au.dk/talk/");
-  let room;
+  const warpTalkServerUrl = "warp.cs.au.dk/talk/";
+  const wt = new WarpTalk("wss", warpTalkServerUrl);
+  let currentRoomName = null;
   let currentUser = "";
-  let isInRoom = false;
-  let roomUsersMap = {};
-  let usersInRoom = document.getElementById("clients");
+  let roomUsers = {};
+  let availableRooms = [];
+  let trackedRooms = {};
 
-  document.getElementById("login-button").addEventListener("click", () => {
-    const nickname = document.getElementById("nickname").value;
-    if (nickname) {
-      currentUser = nickname;
-      wt.connect(onConnected, nickname);
-      displaySystemMessage(`Connected anonymously as ${nickname}`);
-    } else {
-      alert("Please enter a nickname for anonymous connection.");
-    }
-  });
+  const usersInRoomElement = document.getElementById("clients");
+  const messageListElement = document.getElementById("message-list");
+  const leaveButtonElement = document.getElementById("leave-button");
+  const nicknameInput = document.getElementById("nickname");
+  const passwordInput = document.getElementById("password");
+  const messageInputElement = document.getElementById("message-input");
 
-  function onConnected() {
-    displaySystemMessage(
-      "Connection established. Please select a room to join."
-    );
-  }
+  setupEventListeners();
 
-  document.querySelectorAll(".room-item").forEach((item) => {
-    item.addEventListener("click", function () {
-      const roomName = this.querySelector("strong").textContent;
-      leaveRoom();
-      joinRoom(roomName);
-    });
-  });
+  function setupEventListeners() {
+    document
+      .getElementById("login-button")
+      .addEventListener("click", handleLogin);
+    document
+      .getElementById("logout-button")
+      .addEventListener("click", handleLogout);
+    document
+      .getElementById("send-button")
+      .addEventListener("click", sendMessage);
 
-  function joinRoom(roomName) {
-    room = wt.join(roomName);
-    isInRoom = true;
-    displaySystemMessage(`You have joined ${roomName}.`);
-
-    if (!roomUsersMap[roomName]) {
-      roomUsersMap[roomName] = [];
-    }
-
-    updateDisplayedUserList(roomName);
-
-    document.getElementById("leave-button").style.display = "inline-block";
-    document.getElementById("message-list").classList.remove("collapsed");
-
-    room.onMessage((room, msg) => {
-      if (isInRoom) {
-        displayMessage(msg.sender, msg.message);
+    messageInputElement.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !messageInputElement.disabled) {
+        event.preventDefault();
+        sendMessage();
       }
     });
 
+    leaveButtonElement.addEventListener("click", leaveCurrentRoom);
+  }
+
+  function handleLogin() {
+    const nickname = nicknameInput.value;
+    const password = passwordInput.value;
+
+    if (!nickname) {
+      alert("Please enter a nickname for anonymous connection.");
+      return;
+    }
+
+    currentUser = nickname;
+
+    wt.connect(onConnected, nickname, password);
+    if (password) {
+      displaySystemMessage(`Connected with registered account ${nickname}`);
+    } else {
+      displaySystemMessage(`Connected anonymously as ${nickname}`);
+    }
+  }
+
+  function handleLogout() {
+    wt.logout();
+    currentUser = "";
+    displaySystemMessage("Disconnected.");
+
+    clearRoomUI();
+    messageInputElement.disabled = true;
+    document.getElementById("send-button").disabled = true;
+  }
+
+  function displayRoomList() {
+    const roomListElement = document.getElementById("room-list");
+    roomListElement.innerHTML = "";
+
+    availableRooms.forEach((room) => {
+      const roomItem = document.createElement("div");
+      roomItem.classList.add("room-item");
+      roomItem.innerHTML = `<strong>${room.name}</strong>: ${
+        room.description || ""
+      }`;
+      roomItem.addEventListener("click", () => switchRoom(room.name));
+      roomListElement.appendChild(roomItem);
+    });
+  }
+
+  function onConnected() {
+    displaySystemMessage("Connection established. Loading rooms...");
+
+    wt.getRooms((rooms) => {
+      availableRooms = rooms;
+      if (availableRooms && availableRooms.length > 0) {
+        displaySystemMessage("Rooms loaded. Please select a room to join.");
+        displayRoomList();
+
+        availableRooms.forEach((room) => {
+          trackRoomUsers(room.name);
+        });
+      } else {
+        displaySystemMessage("No rooms are available.");
+      }
+    });
+  }
+
+  function trackRoomUsers(roomName) {
+    const room = wt.join(roomName);
+    trackedRooms[roomName] = room;
+
+    if (!roomUsers[roomName]) {
+      roomUsers[roomName] = [];
+    }
+
+    room.onSelfJoin = () => {
+      updateUserList(roomName, currentUser, true);
+      if (currentRoomName === roomName) {
+        updateDisplayedUserList(roomName);
+      }
+    };
+
     room.onJoin((room, nickname) => {
-      if (isInRoom) {
-        displaySystemMessage(`${nickname} has joined the room.`);
-        updateUserList(roomName, nickname, true);
+      updateUserList(roomName, nickname, true);
+      if (currentRoomName === roomName) {
         updateDisplayedUserList(roomName);
       }
     });
 
     room.onLeave((room, nickname) => {
-      if (isInRoom) {
-        displaySystemMessage(`${nickname} has left the room.`);
-        updateUserList(roomName, nickname, false);
+      updateUserList(roomName, nickname, false);
+      if (currentRoomName === roomName) {
         updateDisplayedUserList(roomName);
+      }
+    });
+
+    room.onMessage((room, msg) => {
+      if (currentRoomName === roomName) {
+        displayMessage(msg.sender, msg.message);
       }
     });
   }
 
-  document.getElementById("leave-button").addEventListener("click", () => {
-    leaveRoom();
-  });
+  function switchRoom(roomName) {
+    if (currentRoomName) {
+      leaveCurrentRoom();
+    }
+    joinRoom(roomName);
+  }
 
-  function leaveRoom() {
-    if (room) {
-      isInRoom = false;
+  function joinRoom(roomName) {
+    currentRoomName = roomName;
+    displaySystemMessage(`You have joined ${roomName}`);
 
-      room.onMessage = () => {};
-      room.onJoin = () => {};
-      room.onLeave = () => {};
-      wt.leave(room.name);
-      room = null;
+    updateDisplayedUserList(roomName);
+    showRoomUI();
 
-      document.getElementById("message-list").innerHTML = "";
-      document.getElementById("clients").innerHTML = "";
-      document.getElementById("leave-button").style.display = "none";
+    messageInputElement.disabled = false;
+    document.getElementById("send-button").disabled = false;
+  }
+
+  function leaveCurrentRoom() {
+    if (currentRoomName) {
+      displaySystemMessage(`You have left ${currentRoomName}`);
+      currentRoomName = null;
+      clearRoomUI();
+
+      messageInputElement.disabled = true;
+      document.getElementById("send-button").disabled = true;
     }
   }
 
-  function updateUserList(roomName, name, online) {
-    if (online) {
-      if (!roomUsersMap[roomName].includes(name)) {
-        roomUsersMap[roomName].push(name);
+  function sendMessage() {
+    const message = messageInputElement.value.trim();
+    if (message && currentRoomName) {
+      const room = trackedRooms[currentRoomName];
+      room.send(message);
+      messageInputElement.value = "";
+      messageInputElement.focus();
+    }
+  }
+
+  function displayMessage(sender, message) {
+    const listItem = document.createElement("div");
+    const currentTime = new Date().toLocaleTimeString();
+    listItem.classList.add(sender === currentUser ? "my-message" : "message");
+    listItem.innerHTML =
+      sender === currentUser
+        ? `<strong>[${currentTime}]</strong> ${message}`
+        : `<strong>[${currentTime}] ${sender}:</strong> ${message}`;
+
+    messageListElement.appendChild(listItem);
+    messageListElement.scrollTop = messageListElement.scrollHeight;
+  }
+
+  function displaySystemMessage(message) {
+    const systemMessageElement = document.createElement("div");
+    systemMessageElement.classList.add("system-message");
+    systemMessageElement.textContent = message;
+    messageListElement.appendChild(systemMessageElement);
+    messageListElement.scrollTop = messageListElement.scrollHeight;
+  }
+
+  function updateUserList(roomName, name, isOnline) {
+    if (isOnline) {
+      if (!roomUsers[roomName].includes(name)) {
+        roomUsers[roomName].push(name);
       }
     } else {
-      roomUsersMap[roomName] = roomUsersMap[roomName].filter(
-        (user) => user !== name
-      );
+      roomUsers[roomName] = roomUsers[roomName].filter((user) => user !== name);
     }
   }
 
   function updateDisplayedUserList(roomName) {
-    usersInRoom.innerHTML = ""; // Clear current list
-    roomUsersMap[roomName].forEach((user) => {
+    usersInRoomElement.innerHTML = "";
+    roomUsers[roomName].forEach((user) => {
       const userElement = document.createElement("li");
       userElement.textContent = user;
-      usersInRoom.appendChild(userElement);
+      usersInRoomElement.appendChild(userElement);
     });
   }
 
-  document.getElementById("send-button").addEventListener("click", () => {
-    const message = document.getElementById("message-input").value;
-    if (message && room) {
-      room.send(message);
-      document.getElementById("message-input").value = "";
-    }
-  });
-
-  function displayMessage(sender, message) {
-    const messageList = document.getElementById("message-list");
-    const listItem = document.createElement("div");
-
-    const currentTime = new Date().toLocaleTimeString();
-    if (sender === currentUser) {
-      listItem.classList.add("my-message");
-      listItem.innerHTML = `<strong>[${currentTime}]</strong> ${message}`;
-    } else {
-      listItem.classList.add("message");
-      listItem.innerHTML = `<strong>[${currentTime}] ${sender}:</strong> ${message}`;
-    }
-
-    messageList.appendChild(listItem);
-    messageList.scrollTop = messageList.scrollHeight;
+  function showRoomUI() {
+    leaveButtonElement.style.display = "inline-block";
+    messageListElement.classList.remove("collapsed");
+    messageInputElement.disabled = false;
+    document.getElementById("send-button").disabled = false;
   }
 
-  function displaySystemMessage(message) {
-    const messageList = document.getElementById("message-list");
-    const listItem = document.createElement("div");
-    listItem.classList.add("system-message");
-    listItem.textContent = message;
-    messageList.appendChild(listItem);
-    messageList.scrollTop = messageList.scrollHeight;
+  function clearRoomUI() {
+    messageListElement.innerHTML = "";
+    usersInRoomElement.innerHTML = "";
+    leaveButtonElement.style.display = "none";
+    messageInputElement.disabled = true;
+    document.getElementById("send-button").disabled = true;
   }
 });
