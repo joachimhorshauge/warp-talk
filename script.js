@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let room;
   let currentUser = "";
   let isInRoom = false;
+  let roomUsersMap = {};
   let usersInRoom = document.getElementById("clients");
 
   document.getElementById("login-button").addEventListener("click", () => {
@@ -35,6 +36,12 @@ document.addEventListener("DOMContentLoaded", () => {
     isInRoom = true;
     displaySystemMessage(`You have joined ${roomName}.`);
 
+    if (!roomUsersMap[roomName]) {
+      roomUsersMap[roomName] = [];
+    }
+
+    updateDisplayedUserList(roomName);
+
     document.getElementById("leave-button").style.display = "inline-block";
     document.getElementById("message-list").classList.remove("collapsed");
 
@@ -47,14 +54,16 @@ document.addEventListener("DOMContentLoaded", () => {
     room.onJoin((room, nickname) => {
       if (isInRoom) {
         displaySystemMessage(`${nickname} has joined the room.`);
-        updateUserList(nickname, true);
+        updateUserList(roomName, nickname, true);
+        updateDisplayedUserList(roomName);
       }
     });
 
     room.onLeave((room, nickname) => {
       if (isInRoom) {
         displaySystemMessage(`${nickname} has left the room.`);
-        updateUserList(nickname, false);
+        updateUserList(roomName, nickname, false);
+        updateDisplayedUserList(roomName);
       }
     });
   }
@@ -79,18 +88,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function updateUserList(name, online) {
+  function updateUserList(roomName, name, online) {
     if (online) {
-      const userElement = document.createElement("li");
-      userElement.textContent = name;
-      userElement.id = `user-${name}`;
-      usersInRoom.appendChild(userElement);
-    } else {
-      const userToRemove = document.getElementById(`user-${name}`);
-      if (userToRemove) {
-        usersInRoom.removeChild(userToRemove);
+      if (!roomUsersMap[roomName].includes(name)) {
+        roomUsersMap[roomName].push(name);
       }
+    } else {
+      roomUsersMap[roomName] = roomUsersMap[roomName].filter(
+        (user) => user !== name
+      );
     }
+  }
+
+  function updateDisplayedUserList(roomName) {
+    usersInRoom.innerHTML = ""; // Clear current list
+    roomUsersMap[roomName].forEach((user) => {
+      const userElement = document.createElement("li");
+      userElement.textContent = user;
+      usersInRoom.appendChild(userElement);
+    });
   }
 
   document.getElementById("send-button").addEventListener("click", () => {
